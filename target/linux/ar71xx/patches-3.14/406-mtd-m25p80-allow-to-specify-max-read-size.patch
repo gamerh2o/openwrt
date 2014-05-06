@@ -66,7 +66,7 @@
  
 -	spi_sync(flash->spi, &m);
 +		done = m.actual_length - m25p_cmdsz(flash) -
-+		       (flash->fast_read ? 1 : 0);
++		       dummy;
 +		if (done != readlen) {
 +			mutex_unlock(&flash->lock);
 +			return 1;
