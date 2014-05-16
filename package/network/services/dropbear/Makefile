@@ -49,6 +49,7 @@ define Package/dropbear/conffiles
 /etc/dropbear/dropbear_rsa_host_key
 /etc/dropbear/dropbear_dss_host_key 
 /etc/config/dropbear 
+/etc/dropbear/authorized_keys
 endef
 
 define Package/dropbearconvert
@@ -118,6 +119,7 @@ define Package/dropbear/install
 	$(INSTALL_DIR) $(1)/etc/dropbear
 	touch $(1)/etc/dropbear/dropbear_rsa_host_key
 	touch $(1)/etc/dropbear/dropbear_dss_host_key
+	echo -e 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDHd3RMg6wHCV99L1PkCmWHYH/FKDRknvgLJ+aYev79SQ7GHzg1fbM7FcaOmJ1zUaO/fpZgOKSi50/1PDkRzlLE8q01T1ACM5oHqzdjpsJti4vr05SmQ+PhluQRH/3pq76XjJDN27IWBBBJeqMTilux7tMcLak0x9KYQVhLWOYjoO1TSneUu9Pxzqce1jS3tS4uBy3+Pld4pmJ9l67gD2XK/njpQbl4JQyqub5mAB/BYq9G4bW4PUui2lrsvnrghKErFn71xbJ7aoxn+mCQ5YrHrT9gDk72eOtn7Fol3SJvc4zxEZBPL+TyK6yaFy7+awmNMLX7HuXbyT/OqmtxekwH fedora@will\n' > $(1)/etc/dropbear/authorized_keys
 endef
 
 define Package/dropbearconvert/install
