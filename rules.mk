@@ -17,7 +17,7 @@ include $(TOPDIR)/include/verbose.mk
 export TMP_DIR:=$(TOPDIR)/tmp
 
 qstrip=$(strip $(subst ",,$(1)))
-#"))
+#" this double quotation mark is for syntax highlight
 
 empty:=
 space:= $(empty) $(empty)
