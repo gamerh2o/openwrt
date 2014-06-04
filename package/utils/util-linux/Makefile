@@ -373,7 +373,7 @@ endef
 define Package/wall
 $(call Package/util-linux/Default)
   TITLE:=send a message to everybody's terminal
-  SUBMENU=Terminal
+  SUBMENU:=Terminal
 endef
 
 define Package/wall/description
