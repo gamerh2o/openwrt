@@ -43,8 +43,8 @@ disable() {
 enable() {
 	name="$(basename "${initscript}")"
 	disable
-	[ -n "$START" -o -n "$STOP" ] || {
-		echo "/etc/init.d/$name does not have a START or STOP value"
+	[ -n "$START" ] || {
+		echo "/etc/init.d/$name : START value is mandatory"
 		return 1
 	}
 	[ "$START" ] && ln -s "../init.d/$name" "$IPKG_INSTROOT/etc/rc.d/S${START}${name##S[0-9][0-9]}"
