@@ -98,11 +98,21 @@ define Profile/TLWR703
 	PACKAGES:=kmod-usb-core kmod-usb2
 endef
 
-
 define Profile/TLWR703/Description
 	Package set optimized for the TP-LINK TL-WR703N.
 endef
 $(eval $(call Profile,TLWR703))
+
+
+define Profile/TLWR703_8M
+	NAME:=TP-LINK TL-WR703N_8M
+	PACKAGES:=kmod-usb-core kmod-usb2
+endef
+
+define Profile/TLWR703_8M/Description
+	Package set optimized for the TP-LINK TL-WR703N, with 8M flash.
+endef
+$(eval $(call Profile,TLWR703_8M))
 
 
 define Profile/TLWR710
