@@ -167,7 +167,7 @@
  #define UDP_CORK	1	/* Never send partially complete segments */
 --- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
 +++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-@@ -40,8 +40,8 @@ static bool ipv4_pkt_to_tuple(const stru
+@@ -41,8 +41,8 @@ static bool ipv4_pkt_to_tuple(const stru
  	if (ap == NULL)
  		return false;
  
@@ -191,18 +191,18 @@
  /*
 --- a/include/uapi/linux/in6.h
 +++ b/include/uapi/linux/in6.h
-@@ -36,7 +36,7 @@ struct in6_addr {
- #define s6_addr			in6_u.u6_addr8
+@@ -42,7 +42,7 @@ struct in6_addr {
  #define s6_addr16		in6_u.u6_addr16
  #define s6_addr32		in6_u.u6_addr32
+ #endif
 -};
 +} __attribute__((packed, aligned(2)));
+ #endif /* __UAPI_DEF_IN6_ADDR */
  
- struct sockaddr_in6 {
- 	unsigned short int	sin6_family;    /* AF_INET6 */
+ #if __UAPI_DEF_SOCKADDR_IN6
 --- a/net/ipv6/af_inet6.c
 +++ b/net/ipv6/af_inet6.c
-@@ -60,6 +60,7 @@
+@@ -62,6 +62,7 @@
  #endif
  
  #include <asm/uaccess.h>
@@ -210,26 +210,31 @@
  #include <linux/mroute6.h>
  
  MODULE_AUTHOR("Cast of dozens");
-@@ -687,7 +688,7 @@ bool ipv6_opt_accepted(const struct sock
+@@ -679,11 +680,12 @@ bool ipv6_opt_accepted(const struct sock
+ {
+ 	const struct ipv6_pinfo *np = inet6_sk(sk);
+ 	const struct inet6_skb_parm *opt = IP6CB(skb);
++	unsigned char *header = skb_network_header(skb);
+ 
+ 	if (np->rxopt.all) {
  		if ((opt->hop && (np->rxopt.bits.hopopts ||
  				  np->rxopt.bits.ohopopts)) ||
- 		    ((IPV6_FLOWINFO_MASK &
--		      *(__be32 *)skb_network_header(skb)) &&
-+		      net_hdr_word(skb_network_header(skb))) &&
+-		    (ip6_flowinfo((struct ipv6hdr *) skb_network_header(skb)) &&
++		    (ip6_flowinfo((struct ipv6hdr *)net_hdr_word(header)) &&
  		     np->rxopt.bits.rxflow) ||
  		    (opt->srcrt && (np->rxopt.bits.srcrt ||
  		     np->rxopt.bits.osrcrt)) ||
 --- a/net/ipv6/tcp_ipv6.c
 +++ b/net/ipv6/tcp_ipv6.c
-@@ -64,6 +64,7 @@
- #include <net/secure_seq.h>
+@@ -65,6 +65,7 @@
  #include <net/tcp_memcontrol.h>
+ #include <net/busy_poll.h>
  
 +#include <asm/unaligned.h>
  #include <asm/uaccess.h>
  
  #include <linux/proc_fs.h>
-@@ -763,10 +764,10 @@ static void tcp_v6_send_response(struct
+@@ -771,10 +772,10 @@ static void tcp_v6_send_response(struct
  	topt = (__be32 *)(t1 + 1);
  
  	if (tsecr) {
@@ -246,17 +251,17 @@
  #ifdef CONFIG_TCP_MD5SIG
 --- a/include/linux/ipv6.h
 +++ b/include/linux/ipv6.h
-@@ -4,6 +4,7 @@
- #include <uapi/linux/ipv6.h>
+@@ -5,6 +5,7 @@
  
  #define ipv6_optlen(p)  (((p)->hdrlen+1) << 3)
+ #define ipv6_authlen(p) (((p)->hdrlen+2) << 2)
 +
  /*
   * This structure contains configuration options per IPv6 link.
   */
 --- a/net/ipv6/datagram.c
 +++ b/net/ipv6/datagram.c
-@@ -365,7 +365,7 @@ int ipv6_recv_error(struct sock *sk, str
+@@ -373,7 +373,7 @@ int ipv6_recv_error(struct sock *sk, str
  				ipv6_iface_scope_id(&sin->sin6_addr,
  						    IP6CB(skb)->iif);
  		} else {
@@ -265,7 +270,7 @@
  					       &sin->sin6_addr);
  			sin->sin6_scope_id = 0;
  		}
-@@ -691,12 +691,12 @@ int ip6_datagram_send_ctl(struct net *ne
+@@ -722,12 +722,12 @@ int ip6_datagram_send_ctl(struct net *ne
  			}
  
  			if (fl6->flowlabel&IPV6_FLOWINFO_MASK) {
@@ -282,7 +287,7 @@
  		case IPV6_2292HOPOPTS:
 --- a/net/ipv6/ip6_gre.c
 +++ b/net/ipv6/ip6_gre.c
-@@ -391,7 +391,7 @@ static void ip6gre_err(struct sk_buff *s
+@@ -389,7 +389,7 @@ static void ip6gre_err(struct sk_buff *s
  
  	t = ip6gre_tunnel_lookup(skb->dev, &ipv6h->daddr, &ipv6h->saddr,
  				flags & GRE_KEY ?
@@ -291,7 +296,7 @@
  				p[1]);
  	if (t == NULL)
  		return;
-@@ -483,11 +483,11 @@ static int ip6gre_rcv(struct sk_buff *sk
+@@ -481,11 +481,11 @@ static int ip6gre_rcv(struct sk_buff *sk
  			offset += 4;
  		}
  		if (flags&GRE_KEY) {
@@ -321,22 +326,22 @@
 -		fl6.flowlabel |= (*(__be32 *) ipv6h & IPV6_TCLASS_MASK);
 +		fl6.flowlabel |= net_hdr_word(ipv6h) & IPV6_TCLASS_MASK;
  	if (t->parms.flags & IP6_TNL_F_USE_ORIG_FLOWLABEL)
--		fl6.flowlabel |= (*(__be32 *) ipv6h & IPV6_FLOWLABEL_MASK);
-+		fl6.flowlabel |= net_hdr_word(ipv6h) & IPV6_FLOWLABEL_MASK;
+-		fl6.flowlabel |= ip6_flowlabel(ipv6h);
++		fl6.flowlabel |= ip6_flowlabel((const struct ipv6hdr *)net_hdr_word(ipv6h));
  	if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
  		fl6.flowi6_mark = skb->mark;
  
 --- a/net/ipv6/ip6_tunnel.c
 +++ b/net/ipv6/ip6_tunnel.c
-@@ -1272,9 +1272,9 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, str
+@@ -1288,9 +1288,9 @@ ip6ip6_tnl_xmit(struct sk_buff *skb, str
  
  	dsfield = ipv6_get_dsfield(ipv6h);
  	if (t->parms.flags & IP6_TNL_F_USE_ORIG_TCLASS)
 -		fl6.flowlabel |= (*(__be32 *) ipv6h & IPV6_TCLASS_MASK);
 +		fl6.flowlabel |= net_hdr_word(ipv6h) & IPV6_TCLASS_MASK;
  	if (t->parms.flags & IP6_TNL_F_USE_ORIG_FLOWLABEL)
--		fl6.flowlabel |= (*(__be32 *) ipv6h & IPV6_FLOWLABEL_MASK);
-+		fl6.flowlabel |= net_hdr_word(ipv6h) & IPV6_FLOWLABEL_MASK;
+-		fl6.flowlabel |= ip6_flowlabel(ipv6h);
++		fl6.flowlabel |= ip6_flowlabel((const struct ipv6hdr *)net_hdr_word(ipv6h));
  	if (t->parms.flags & IP6_TNL_F_USE_ORIG_FWMARK)
  		fl6.flowi6_mark = skb->mark;
  
@@ -367,20 +372,20 @@
  #endif /* _LINUX_TYPES_H */
 --- a/net/ipv4/af_inet.c
 +++ b/net/ipv4/af_inet.c
-@@ -1381,8 +1381,8 @@ static struct sk_buff **inet_gro_receive
+@@ -1367,8 +1367,8 @@ static struct sk_buff **inet_gro_receive
  	if (unlikely(ip_fast_csum((u8 *)iph, 5)))
  		goto out_unlock;
  
 -	id = ntohl(*(__be32 *)&iph->id);
--	flush = (u16)((ntohl(*(__be32 *)iph) ^ skb_gro_len(skb)) | (id ^ IP_DF));
+-	flush = (u16)((ntohl(*(__be32 *)iph) ^ skb_gro_len(skb)) | (id & ~IP_DF));
 +	id = ntohl(net_hdr_word(&iph->id));
-+	flush = (u16)((ntohl(net_hdr_word(iph)) ^ skb_gro_len(skb)) | (id ^ IP_DF));
++	flush = (u16)((ntohl(net_hdr_word(iph)) ^ skb_gro_len(skb)) | (id & ~IP_DF));
  	id >>= 16;
  
  	for (p = *head; p; p = p->next) {
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -461,7 +461,7 @@ static struct neighbour *ipv4_neigh_look
+@@ -459,7 +459,7 @@ static struct neighbour *ipv4_neigh_look
  	else if (skb)
  		pkey = &ip_hdr(skb)->daddr;
  
@@ -391,7 +396,7 @@
  	return neigh_create(&arp_tbl, pkey, dev);
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
-@@ -412,48 +412,53 @@ static void tcp_options_write(__be32 *pt
+@@ -422,48 +422,53 @@ static void tcp_options_write(__be32 *pt
  	u16 options = opts->options;	/* mungable copy */
  
  	if (unlikely(OPTION_MD5 & options)) {
@@ -468,7 +473,7 @@
  	}
  
  	if (unlikely(opts->num_sack_blocks)) {
-@@ -461,16 +466,17 @@ static void tcp_options_write(__be32 *pt
+@@ -471,16 +476,17 @@ static void tcp_options_write(__be32 *pt
  			tp->duplicate_sack : tp->selective_acks;
  		int this_sack;
  
@@ -492,7 +497,7 @@
  		}
  
  		tp->rx_opt.dsack = 0;
-@@ -479,9 +485,10 @@ static void tcp_options_write(__be32 *pt
+@@ -489,9 +495,10 @@ static void tcp_options_write(__be32 *pt
  	if (unlikely(OPTION_FAST_OPEN_COOKIE & options)) {
  		struct tcp_fastopen_cookie *foc = opts->fastopen_cookie;
  
@@ -508,7 +513,7 @@
  		if ((foc->len & 3) == 2) {
 --- a/net/ipv4/igmp.c
 +++ b/net/ipv4/igmp.c
-@@ -470,7 +470,7 @@ static struct sk_buff *add_grec(struct s
+@@ -496,7 +496,7 @@ static struct sk_buff *add_grec(struct s
  		if (!skb)
  			return NULL;
  		psrc = (__be32 *)skb_put(skb, sizeof(__be32));
@@ -557,15 +562,15 @@
  #define IGMP_HOST_MEMBERSHIP_REPORT	0x12	/* Ditto */
 --- a/net/core/flow_dissector.c
 +++ b/net/core/flow_dissector.c
-@@ -157,7 +157,7 @@ ipv6:
- 		ports = skb_header_pointer(skb, nhoff + poff,
+@@ -44,7 +44,7 @@ __be32 skb_flow_get_ports(const struct s
+ 		ports = skb_header_pointer(skb, thoff + poff,
  					   sizeof(_ports), &_ports);
  		if (ports)
--			flow->ports = *ports;
-+			flow->ports = net_hdr_word(ports);
+-			return *ports;
++			return (__be32)net_hdr_word(ports);
  	}
  
- 	flow->thoff = (u16) nhoff;
+ 	return 0;
 --- a/include/uapi/linux/icmpv6.h
 +++ b/include/uapi/linux/icmpv6.h
 @@ -76,7 +76,7 @@ struct icmp6hdr {
@@ -618,7 +623,7 @@
  
 --- a/net/sched/cls_u32.c
 +++ b/net/sched/cls_u32.c
-@@ -142,7 +142,7 @@ next_knode:
+@@ -137,7 +137,7 @@ next_knode:
  			data = skb_header_pointer(skb, toff, 4, &hdata);
  			if (!data)
  				goto out;
@@ -627,7 +632,7 @@
  				n = n->next;
  				goto next_knode;
  			}
-@@ -193,8 +193,8 @@ check_terminal:
+@@ -188,8 +188,8 @@ check_terminal:
  						  &hdata);
  			if (!data)
  				goto out;
@@ -640,15 +645,15 @@
  			goto next_ht;
 --- a/net/ipv6/ip6_offload.c
 +++ b/net/ipv6/ip6_offload.c
-@@ -199,7 +199,7 @@ static struct sk_buff **ipv6_gro_receive
+@@ -242,7 +242,7 @@ static struct sk_buff **ipv6_gro_receive
  			continue;
  
- 		iph2 = ipv6_hdr(p);
+ 		iph2 = (struct ipv6hdr *)(p->data + off);
 -		first_word = *(__be32 *)iph ^ *(__be32 *)iph2 ;
 +		first_word = net_hdr_word(iph) ^ net_hdr_word(iph2);
  
- 		/* All fields must match except length and Traffic Class. */
- 		if (nlen != skb_network_header_len(p) ||
+ 		/* All fields must match except length and Traffic Class.
+ 		 * XXX skbs on the gro_list have all been parsed and pulled
 --- a/include/net/addrconf.h
 +++ b/include/net/addrconf.h
 @@ -43,7 +43,7 @@ struct prefix_info {
@@ -680,16 +685,16 @@
  static inline void ipv6_copy_dscp(unsigned int dscp, struct ipv6hdr *inner)
 --- a/include/net/ipv6.h
 +++ b/include/net/ipv6.h
-@@ -107,7 +107,7 @@ struct frag_hdr {
+@@ -108,7 +108,7 @@ struct frag_hdr {
  	__u8	reserved;
  	__be16	frag_off;
  	__be32	identification;
 -};
 +} __attribute__((packed, aligned(2)));
  
- #define	IP6_MF	0x0001
- 
-@@ -386,8 +386,8 @@ static inline void __ipv6_addr_set_half(
+ #define	IP6_MF		0x0001
+ #define	IP6_OFFSET	0xFFF8
+@@ -397,8 +397,8 @@ static inline void __ipv6_addr_set_half(
  	}
  #endif
  #endif
@@ -700,7 +705,7 @@
  }
  
  static inline void ipv6_addr_set(struct in6_addr *addr, 
-@@ -446,6 +446,8 @@ static inline bool ipv6_prefix_equal(con
+@@ -457,6 +457,8 @@ static inline bool ipv6_prefix_equal(con
  	const __be32 *a1 = addr1->s6_addr32;
  	const __be32 *a2 = addr2->s6_addr32;
  	unsigned int pdw, pbi;
@@ -709,7 +714,7 @@
  
  	/* check complete u32 in prefix */
  	pdw = prefixlen >> 5;
-@@ -454,7 +456,9 @@ static inline bool ipv6_prefix_equal(con
+@@ -465,7 +467,9 @@ static inline bool ipv6_prefix_equal(con
  
  	/* check incomplete u32 in prefix */
  	pbi = prefixlen & 0x1f;
@@ -720,7 +725,7 @@
  		return false;
  
  	return true;
-@@ -587,13 +591,13 @@ static inline void ipv6_addr_set_v4mappe
+@@ -598,13 +602,13 @@ static inline void ipv6_addr_set_v4mappe
   */
  static inline int __ipv6_addr_diff32(const void *token1, const void *token2, int addrlen)
  {
@@ -736,7 +741,7 @@
  		if (xb)
  			return i * 32 + 31 - __fls(ntohl(xb));
  	}
-@@ -657,12 +661,13 @@ extern void ipv6_select_ident(struct fra
+@@ -670,12 +674,13 @@ int ip6_dst_hoplimit(struct dst_entry *d
  static inline void ip6_flow_hdr(struct ipv6hdr *hdr, unsigned int tclass,
  				__be32 flowlabel)
  {
@@ -751,7 +756,7 @@
 +	return net_hdr_word((__be32 *)hdr) & IPV6_FLOWINFO_MASK;
  }
  
- /*
+ static inline __be32 ip6_flowlabel(const struct ipv6hdr *hdr)
 --- a/include/net/secure_seq.h
 +++ b/include/net/secure_seq.h
 @@ -2,6 +2,7 @@
@@ -760,11 +765,11 @@
  #include <linux/types.h>
 +#include <linux/in6.h>
  
- extern __u32 secure_ip_id(__be32 daddr);
- extern __u32 secure_ipv6_id(const __be32 daddr[4]);
+ __u32 secure_ip_id(__be32 daddr);
+ __u32 secure_ipv6_id(const __be32 daddr[4]);
 --- a/include/uapi/linux/in.h
 +++ b/include/uapi/linux/in.h
-@@ -55,7 +55,7 @@ enum {
+@@ -78,7 +78,7 @@ enum {
  /* Internet address. */
  struct in_addr {
  	__be32	s_addr;
@@ -775,7 +780,7 @@
  #define IP_TTL		2
 --- a/net/core/secure_seq.c
 +++ b/net/core/secure_seq.c
-@@ -56,11 +56,12 @@ __u32 secure_tcpv6_sequence_number(const
+@@ -46,11 +46,12 @@ __u32 secure_tcpv6_sequence_number(const
  	u32 secret[MD5_MESSAGE_BYTES / 4];
  	u32 hash[MD5_DIGEST_WORDS];
  	u32 i;
@@ -789,7 +794,7 @@
  	secret[4] = net_secret[4] +
  		(((__force u16)sport << 16) + (__force u16)dport);
  	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
-@@ -78,11 +79,12 @@ u32 secure_ipv6_port_ephemeral(const __b
+@@ -68,11 +69,12 @@ u32 secure_ipv6_port_ephemeral(const __b
  	u32 secret[MD5_MESSAGE_BYTES / 4];
  	u32 hash[MD5_DIGEST_WORDS];
  	u32 i;
@@ -803,7 +808,7 @@
  	secret[4] = net_secret[4] + (__force u32)dport;
  	for (i = 5; i < MD5_MESSAGE_BYTES / 4; i++)
  		secret[i] = net_secret[i];
-@@ -185,11 +187,12 @@ u64 secure_dccpv6_sequence_number(__be32
+@@ -175,11 +177,12 @@ u64 secure_dccpv6_sequence_number(__be32
  	u32 hash[MD5_DIGEST_WORDS];
  	u64 seq;
  	u32 i;
@@ -830,7 +835,7 @@
  static __inline__ struct fib6_node * node_alloc(void)
 --- a/net/netfilter/nf_conntrack_proto_tcp.c
 +++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -454,7 +454,7 @@ static void tcp_sack(const struct sk_buf
+@@ -456,7 +456,7 @@ static void tcp_sack(const struct sk_buf
  
  	/* Fast path for timestamp-only option */
  	if (length == TCPOLEN_TSTAMP_ALIGNED
@@ -859,34 +864,16 @@
  	if (!pskb_may_pull(skb, hlen))
  		return -EINVAL;
  
--	*spi = *(__be32*)(skb_transport_header(skb) + offset);
--	*seq = *(__be32*)(skb_transport_header(skb) + offset_seq);
+-	*spi = *(__be32 *)(skb_transport_header(skb) + offset);
+-	*seq = *(__be32 *)(skb_transport_header(skb) + offset_seq);
 +	*spi = net_hdr_word(skb_transport_header(skb) + offset);
 +	*seq = net_hdr_word(skb_transport_header(skb) + offset_seq);
  	return 0;
  }
  
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -190,13 +190,13 @@ static int parse_gre_header(struct sk_bu
- 	}
- 
- 	if (greh->flags & GRE_KEY) {
--		tpi->key = *options;
-+		tpi->key = net_hdr_word(options);
- 		options++;
- 	} else
- 		tpi->key = 0;
- 
- 	if (unlikely(greh->flags & GRE_SEQ)) {
--		tpi->seq = *options;
-+		tpi->seq = net_hdr_word(options);
- 		options++;
- 	} else
- 		tpi->seq = 0;
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
-@@ -3625,14 +3625,16 @@ static bool tcp_parse_aligned_timestamp(
+@@ -3631,14 +3631,16 @@ static bool tcp_parse_aligned_timestamp(
  {
  	const __be32 *ptr = (const __be32 *)(th + 1);
  
@@ -913,7 +900,7 @@
 @@ -47,6 +47,7 @@ struct pppoe_addr {
   */
  struct pptp_addr {
- 	__be16		call_id;
+ 	__u16		call_id;
 +	__u16		pad;
  	struct in_addr	sin_addr;
  };
