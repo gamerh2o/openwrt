@@ -1,15 +1,18 @@
 --- a/drivers/mtd/devices/m25p80.c
 +++ b/drivers/mtd/devices/m25p80.c
-@@ -357,10 +357,12 @@ static int m25p80_read(struct mtd_info *
- 	 * OPCODE_FAST_READ (if available) is faster.
- 	 * Should add 1 byte DUMMY_BYTE.
- 	 */
+@@ -532,6 +532,7 @@ static int m25p80_read(struct mtd_info *
+ 		return -EINVAL;
+ 	}
+ 
 +	t[0].type = SPI_TRANSFER_FLASH_READ_CMD;
  	t[0].tx_buf = flash->command;
- 	t[0].len = m25p_cmdsz(flash) + (flash->fast_read ? 1 : 0);
+ 	t[0].len = m25p_cmdsz(flash) + dummy;
  	spi_message_add_tail(&t[0], &m);
+@@ -561,6 +562,7 @@ static int m25p80_read(struct mtd_info *
+ 		else
+ 			readlen = len;
  
-+	t[1].type = SPI_TRANSFER_FLASH_READ_DATA;
- 	spi_message_add_tail(&t[1], &m);
- 
- 	mutex_lock(&flash->lock);
++		t[1].type = SPI_TRANSFER_FLASH_READ_DATA;
+ 		t[1].rx_buf = buf + ofs;
+ 		t[1].rx_nbits = m25p80_rx_nbits(flash);
+ 		t[1].len = readlen;
