@@ -13,9 +13,9 @@
  
  #define AT803X_INTR_ENABLE			0x12
  #define AT803X_INTR_STATUS			0x13
-@@ -28,10 +30,61 @@
- #define AT803X_MMD_ACCESS_CONTROL_DATA		0x0E
- #define AT803X_FUNC_DATA			0x4003
+@@ -32,10 +34,61 @@
+ #define AT803X_DEBUG_SYSTEM_MODE_CTRL		0x05
+ #define AT803X_DEBUG_RGMII_TX_CLK_DLY		BIT(8)
  
 +#define AT803X_PCS_SMART_EEE_CTRL3		0x805D
 +
@@ -72,11 +72,11 @@
 +	at803x_dbg_reg_rmw(phydev, reg, clear, 0);
 +}
 +
- static void at803x_set_wol_mac_addr(struct phy_device *phydev)
+ static int at803x_set_wol(struct phy_device *phydev,
+ 			  struct ethtool_wolinfo *wol)
  {
- 	struct net_device *ndev = phydev->attached_dev;
-@@ -62,8 +115,16 @@ static void at803x_set_wol_mac_addr(stru
- 	}
+@@ -139,8 +192,16 @@ static int at803x_resume(struct phy_devi
+ 	return 0;
  }
  
 +static void at803x_disable_smarteee(struct phy_device *phydev)
@@ -90,11 +90,11 @@
  {
 +	struct at803x_platform_data *pdata;
  	int val;
+ 	int ret;
  	u32 features;
- 	int status;
-@@ -105,6 +166,26 @@ static int at803x_config_init(struct phy
- 	status = phy_write(phydev, AT803X_INTR_ENABLE, AT803X_WOL_ENABLE);
- 	status = phy_read(phydev, AT803X_INTR_STATUS);
+@@ -188,6 +249,26 @@ static int at803x_config_init(struct phy
+ 			return ret;
+ 	}
  
 +	pdata = dev_get_platdata(&phydev->dev);
 +	if (pdata) {
