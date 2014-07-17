@@ -1,6 +1,6 @@
 --- a/drivers/mtd/nand/Kconfig
 +++ b/drivers/mtd/nand/Kconfig
-@@ -544,4 +544,8 @@ config MTD_NAND_XWAY
+@@ -510,4 +510,8 @@ config MTD_NAND_XWAY
  	  Enables support for NAND Flash chips on Lantiq XWAY SoCs. NAND is attached
  	  to the External Bus Unit (EBU).
  
@@ -16,6 +16,6 @@
  obj-$(CONFIG_MTD_NAND_TMIO)		+= tmio_nand.o
  obj-$(CONFIG_MTD_NAND_PLATFORM)		+= plat_nand.o
 +obj-$(CONFIG_MTD_NAND_RB4XX)		+= rb4xx_nand.o
- obj-$(CONFIG_MTD_ALAUDA)		+= alauda.o
  obj-$(CONFIG_MTD_NAND_PASEMI)		+= pasemi_nand.o
  obj-$(CONFIG_MTD_NAND_ORION)		+= orion_nand.o
+ obj-$(CONFIG_MTD_NAND_FSL_ELBC)		+= fsl_elbc_nand.o
