@@ -1,0 +1,11 @@
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -342,6 +342,8 @@ struct phy_device *get_phy_device(struct
+ 	if ((phy_id & 0x1fffffff) == 0x1fffffff)
+ 		return NULL;
+ 
++	dev_info(&bus->dev, "%s: creating phy device, phy_id = %d\n",
++		 __func__, phy_id);
+ 	dev = phy_device_create(bus, addr, phy_id, is_c45, &c45_ids);
+ 
+ 	return dev;
