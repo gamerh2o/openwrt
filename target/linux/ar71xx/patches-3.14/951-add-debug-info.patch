@@ -1,0 +1,172 @@
+--- a/drivers/net/ethernet/atheros/ag71xx/ag71xx_mdio.c
++++ b/drivers/net/ethernet/atheros/ag71xx/ag71xx_mdio.c
+@@ -35,12 +35,13 @@ static inline u32 ag71xx_mdio_rr(struct
+ 
+ static void ag71xx_mdio_dump_regs(struct ag71xx_mdio *am)
+ {
+-	DBG("%s: mii_cfg=%08x, mii_cmd=%08x, mii_addr=%08x\n",
++	pr_debug("%s: test pr_debug\n", __func__);
++	pr_info("%s: mii_cfg=%08x, mii_cmd=%08x, mii_addr=%08x\n",
+ 		am->mii_bus->name,
+ 		ag71xx_mdio_rr(am, AG71XX_REG_MII_CFG),
+ 		ag71xx_mdio_rr(am, AG71XX_REG_MII_CMD),
+ 		ag71xx_mdio_rr(am, AG71XX_REG_MII_ADDR));
+-	DBG("%s: mii_ctrl=%08x, mii_status=%08x, mii_ind=%08x\n",
++	pr_info("%s: mii_ctrl=%08x, mii_status=%08x, mii_ind=%08x\n",
+ 		am->mii_bus->name,
+ 		ag71xx_mdio_rr(am, AG71XX_REG_MII_CTRL),
+ 		ag71xx_mdio_rr(am, AG71XX_REG_MII_STATUS),
+--- a/drivers/net/ethernet/atheros/ag71xx/ag71xx_phy.c
++++ b/drivers/net/ethernet/atheros/ag71xx/ag71xx_phy.c
+@@ -25,12 +25,17 @@ static void ag71xx_phy_link_adjust(struc
+ 	if (phydev->link) {
+ 		if (ag->duplex != phydev->duplex
+ 		    || ag->speed != phydev->speed) {
++			pr_info("%s: %s: status changed(duplex, speed)\n",
++				ag->dev->name, __func__);
+ 			status_change = 1;
+ 		}
+ 	}
+ 
+-	if (phydev->link != ag->link)
++	if (phydev->link != ag->link) {
++		pr_info("%s: %s: status changed(link)\n",
++			ag->dev->name, __func__);
+ 		status_change = 1;
++	}
+ 
+ 	ag->link = phydev->link;
+ 	ag->duplex = phydev->duplex;
+@@ -52,6 +57,8 @@ void ag71xx_phy_start(struct ag71xx *ag)
+ 		ag71xx_ar7240_start(ag);
+ 	} else {
+ 		ag->link = 1;
++		pr_info("%s: %s: calling ag71xx_link_adjust\n",
++			ag->dev->name, __func__);
+ 		ag71xx_link_adjust(ag);
+ 	}
+ }
+@@ -69,6 +76,8 @@ void ag71xx_phy_stop(struct ag71xx *ag)
+ 	spin_lock_irqsave(&ag->lock, flags);
+ 	if (ag->link) {
+ 		ag->link = 0;
++		pr_info("%s: %s: calling ag71xx_link_adjust\n",
++			ag->dev->name, __func__);
+ 		ag71xx_link_adjust(ag);
+ 	}
+ 	spin_unlock_irqrestore(&ag->lock, flags);
+@@ -115,7 +124,7 @@ static int ag71xx_phy_connect_multi(stru
+ 		if (ag->mii_bus->phy_map[phy_addr] == NULL)
+ 			continue;
+ 
+-		DBG("%s: PHY found at %s, uid=%08x\n",
++		pr_info("%s: PHY found at %s, uid=%08x\n",
+ 			dev_name(dev),
+ 			dev_name(&ag->mii_bus->phy_map[phy_addr]->dev),
+ 			ag->mii_bus->phy_map[phy_addr]->phy_id);
+@@ -198,8 +207,12 @@ int ag71xx_phy_connect(struct ag71xx *ag
+ 	struct ag71xx_platform_data *pdata = ag71xx_get_pdata(ag);
+ 
+ 	if (pdata->mii_bus_dev == NULL ||
+-	    pdata->mii_bus_dev->bus == NULL )
++	    pdata->mii_bus_dev->bus == NULL ) {
++		pr_info("%s: pdata->mii_bus_dev->bus == NULL, "
++			"calling ag71xx_phy_connect_fixed\n",
++			__func__);
+ 		return ag71xx_phy_connect_fixed(ag);
++	}
+ 
+ 	ag->mii_bus = dev_to_mii_bus(pdata->mii_bus_dev);
+ 	if (ag->mii_bus == NULL) {
+@@ -215,12 +228,17 @@ int ag71xx_phy_connect(struct ag71xx *ag
+ 		mutex_unlock(&ag->mii_bus->mdio_lock);
+ 	}
+ 
+-	if (pdata->switch_data)
++	if (pdata->switch_data) {
++		pr_info("%s: calling ag71xx_ar7240_init\n", __func__);
+ 		return ag71xx_ar7240_init(ag);
++	}
+ 
+-	if (pdata->phy_mask)
++	if (pdata->phy_mask) {
++		pr_info("%s: calling ag71xx_phy_connect_multi\n", __func__);
+ 		return ag71xx_phy_connect_multi(ag);
++	}
+ 
++	pr_info("%s: return ag71xx_phy_connect_fixed\n", __func__);
+ 	return ag71xx_phy_connect_fixed(ag);
+ }
+ 
+--- a/drivers/net/ethernet/atheros/ag71xx/ag71xx_main.c
++++ b/drivers/net/ethernet/atheros/ag71xx/ag71xx_main.c
+@@ -545,8 +545,10 @@ void ag71xx_link_adjust(struct ag71xx *a
+ 		return;
+ 	}
+ 
+-	if (pdata->is_ar724x)
++	if (pdata->is_ar724x) {
++		pr_info("%s: calling ag71xx_fast_reset\n", ag->dev->name);
+ 		ag71xx_fast_reset(ag);
++	}
+ 
+ 	cfg2 = ag71xx_rr(ag, AG71XX_REG_MAC_CFG2);
+ 	cfg2 &= ~(MAC_CFG2_IF_1000 | MAC_CFG2_IF_10_100 | MAC_CFG2_FDX);
+@@ -597,19 +599,19 @@ void ag71xx_link_adjust(struct ag71xx *a
+ 			ag71xx_speed_str(ag),
+ 			(DUPLEX_FULL == ag->duplex) ? "Full" : "Half");
+ 
+-	DBG("%s: fifo_cfg0=%#x, fifo_cfg1=%#x, fifo_cfg2=%#x\n",
++	pr_info("%s: fifo_cfg0=%#x, fifo_cfg1=%#x, fifo_cfg2=%#x\n",
+ 		ag->dev->name,
+ 		ag71xx_rr(ag, AG71XX_REG_FIFO_CFG0),
+ 		ag71xx_rr(ag, AG71XX_REG_FIFO_CFG1),
+ 		ag71xx_rr(ag, AG71XX_REG_FIFO_CFG2));
+ 
+-	DBG("%s: fifo_cfg3=%#x, fifo_cfg4=%#x, fifo_cfg5=%#x\n",
++	pr_info("%s: fifo_cfg3=%#x, fifo_cfg4=%#x, fifo_cfg5=%#x\n",
+ 		ag->dev->name,
+ 		ag71xx_rr(ag, AG71XX_REG_FIFO_CFG3),
+ 		ag71xx_rr(ag, AG71XX_REG_FIFO_CFG4),
+ 		ag71xx_rr(ag, AG71XX_REG_FIFO_CFG5));
+ 
+-	DBG("%s: mac_cfg2=%#x, mac_ifctl=%#x\n",
++	pr_info("%s: mac_cfg2=%#x, mac_ifctl=%#x\n",
+ 		ag->dev->name,
+ 		ag71xx_rr(ag, AG71XX_REG_MAC_CFG2),
+ 		ag71xx_rr(ag, AG71XX_REG_MAC_IFCTL));
+@@ -656,6 +658,8 @@ static int ag71xx_stop(struct net_device
+ 	unsigned long flags;
+ 
+ 	netif_carrier_off(dev);
++	pr_info("%s: %s: calling ag71xx_phy_stop\n",
++		ag->dev->name, __func__);
+ 	ag71xx_phy_stop(ag);
+ 
+ 	spin_lock_irqsave(&ag->lock, flags);
+@@ -799,10 +803,14 @@ static void ag71xx_restart_work_func(str
+ 
+ 	if (ag71xx_get_pdata(ag)->is_ar724x) {
+ 		ag->link = 0;
++		pr_info("%s: %s: calling ag71xx_link_adjust\n",
++			ag->dev->name, __func__);
+ 		ag71xx_link_adjust(ag);
+ 		return;
+ 	}
+ 
++	pr_info("%s: %s: calling ag71xx_stop\n",
++		ag->dev->name, __func__);
+ 	ag71xx_stop(ag->dev);
+ 	ag71xx_open(ag->dev);
+ }
+--- a/drivers/net/ethernet/atheros/ag71xx/ag71xx_ar7240.c
++++ b/drivers/net/ethernet/atheros/ag71xx/ag71xx_ar7240.c
+@@ -1145,6 +1145,8 @@ static void link_function(struct work_st
+ 	spin_lock_irqsave(&ag->lock, flags);
+ 	if (status != ag->link) {
+ 		ag->link = status;
++		pr_info("%s: %s: calling ag71xx_link_adjust\n",
++			ag->dev->name, __func__);
+ 		ag71xx_link_adjust(ag);
+ 	}
+ 	spin_unlock_irqrestore(&ag->lock, flags);
