@@ -34,7 +34,7 @@ endef
 COMMA:=,
 
 define mkcmdline
-$(if $(1),board=$(1) )$(if $(2),console=$(2)$(COMMA)$(3))
+$(if $(1),board=$(1) )$(if $(2),console=$(2)$(COMMA)$(3) )$(if $(1),dyndbg="+p")
 endef
 
 define mtdpartsize
